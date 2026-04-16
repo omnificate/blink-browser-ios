@@ -1,0 +1,51 @@
+name: Build iOS IPA
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install xcodegen
+        run: brew install xcodegen
+      
+      - name: Generate Xcode Project
+        run: xcodegen generate
+      
+      - name: Build Archive
+        run: |
+          xcodebuild archive \
+            -project BlinkBrowser.xcodeproj \
+            -scheme BlinkBrowser \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/BlinkBrowser.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO
+      
+      - name: Package IPA
+        run: |
+          mkdir -p build/Payload
+          cp -r build/BlinkBrowser.xcarchive/Products/Applications/BlinkBrowser.app build/Payload/
+          cd build && zip -r BlinkBrowser.ipa Payload/
+          
+      - name: Create TIPA (TrollStore)
+        run: |
+          cp build/BlinkBrowser.ipa build/BlinkBrowser.tipa
+          
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlinkBrowser-IPA
+          path: build/BlinkBrowser.ipa
+          
+      - name: Upload TIPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlinkBrowser-TIPA
+          path: build/BlinkBrowser.tipa

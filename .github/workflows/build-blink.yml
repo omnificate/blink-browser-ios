@@ -1,0 +1,90 @@
+name: Build Chromium Blink for iOS
+on:
+  workflow_dispatch:
+    inputs:
+      target_cpu:
+        description: 'Target CPU architecture'
+        required: true
+        default: 'arm64'
+        type: choice
+        options:
+          - arm64
+          - x64
+
+jobs:
+  build-blink:
+    runs-on: macos-14
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          df -h
+      
+      - name: Install depot_tools
+        run: |
+          git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+          echo "$PWD/depot_tools" >> $GITHUB_PATH
+      
+      - name: Fetch Chromium Source
+        run: |
+          mkdir chromium && cd chromium
+          fetch --nohooks --no-history ios
+          cd src
+          gclient sync --nohooks --no-history
+          gclient runhooks
+        env:
+          DEPOT_TOOLS_UPDATE: 0
+      
+      - name: Configure Blink Build
+        run: |
+          cd chromium/src
+          cat > out/Release-iphoneos/args.gn << 'EOF'
+          target_os = "ios"
+          target_cpu = "${{ github.event.inputs.target_cpu }}"
+          use_blink = true
+          is_debug = false
+          is_official_build = true
+          enable_dsyms = false
+          ios_enable_code_signing = false
+          treat_warnings_as_errors = false
+          use_xcode_clang = false
+          enable_nacl = false
+          blink_symbol_level = 0
+          EOF
+          gn gen out/Release-iphoneos
+      
+      - name: Build Blink Content Shell
+        run: |
+          cd chromium/src
+          autoninja -C out/Release-iphoneos content_shell
+      
+      - name: Package Blink Browser
+        run: |
+          cd chromium/src
+          mkdir -p /tmp/blink-artifacts
+          cp -r out/Release-iphoneos/*.app /tmp/blink-artifacts/ || true
+          cp -r out/Release-iphoneos/*.framework /tmp/blink-artifacts/ || true
+          cd /tmp/blink-artifacts
+          if [ -d "*.app" ]; then
+            mkdir Payload && mv *.app Payload/
+            zip -r BlinkBrowser-Blink.ipa Payload/
+            cp BlinkBrowser-Blink.ipa BlinkBrowser-Blink.tipa
+          fi
+      
+      - name: Upload Blink Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlinkBrowser-Blink-${{ github.event.inputs.target_cpu }}
+          path: /tmp/blink-artifacts/
+          if-no-files-found: warn
