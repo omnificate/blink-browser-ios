@@ -58,16 +58,20 @@ jobs:
         run: |
           echo "Available Xcode versions:"
           ls -la /Applications/Xcode*.app 2>/dev/null || true
-          # Use the default Xcode.app or find the latest versioned one
-          if [ -d "/Applications/Xcode.app" ]; then
-            sudo xcode-select -s /Applications/Xcode.app
+          # Use the LATEST versioned Xcode (has newest SDK)
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$LATEST" ]; then
+            echo "Selecting latest: $LATEST"
+            sudo xcode-select -s "$LATEST"
           else
-            XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
-            sudo xcode-select -s "$XCODE"
+            sudo xcode-select -s /Applications/Xcode.app
           fi
-          echo "Selected: $(xcode-select -p)"
+          echo "Active: $(xcode-select -p)"
           xcodebuild -version
-          xcodebuild -showsdks 2>/dev/null | grep iphoneos || echo "iOS SDK found via Xcode"
+          echo "macOS SDKs:"
+          ls $(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/ 2>/dev/null || true
+          echo "iOS SDKs:"
+          ls $(xcode-select -p)/Platforms/iPhoneOS.platform/Developer/SDKs/ 2>/dev/null || true
 
       - name: Install depot_tools
         run: |
