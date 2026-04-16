@@ -24,7 +24,6 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 360
     env:
-      DEPOT_TOOLS_UPDATE: 0
       CHROMIUM_BUILDTOOLS_PATH: ${{ github.workspace }}/chromium/src/buildtools
 
     steps:
@@ -72,8 +71,11 @@ jobs:
 
       - name: Install depot_tools
         run: |
-          git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git $HOME/depot_tools
+          git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git $HOME/depot_tools
           echo "$HOME/depot_tools" >> $GITHUB_PATH
+          # Bootstrap depot_tools (required for gn, ninja etc.)
+          cd $HOME/depot_tools
+          ./update_depot_tools
 
       - name: Create .gclient config
         run: |
@@ -113,24 +115,29 @@ jobs:
         run: |
           cd chromium/src
           BUILD_DIR="out/${{ inputs.build_type }}-iphoneos"
-          IS_DEBUG=$( [ "${{ inputs.build_type }}" = "Debug" ] && echo "true" || echo "false" )
+          if [ "${{ inputs.build_type }}" = "Debug" ]; then
+            IS_DEBUG="true"
+          else
+            IS_DEBUG="false"
+          fi
 
-          gn gen "$BUILD_DIR" --args="
-            target_os = \"ios\"
-            target_cpu = \"arm64\"
-            use_blink = true
-            is_debug = $IS_DEBUG
-            ios_enable_code_signing = false
-            enable_nacl = false
-            symbol_level = 0
-            blink_symbol_level = 0
-            enable_dsyms = false
-            treat_warnings_as_errors = false
-            ios_content_shell_bundle_identifier = \"com.blink.browser.content-shell\"
-          "
+          mkdir -p "$BUILD_DIR"
+          cat > "$BUILD_DIR/args.gn" << EOF
+          target_os = "ios"
+          target_cpu = "arm64"
+          use_blink = true
+          is_debug = ${IS_DEBUG}
+          ios_enable_code_signing = false
+          enable_nacl = false
+          symbol_level = 0
+          blink_symbol_level = 0
+          enable_dsyms = false
+          treat_warnings_as_errors = false
+          ios_content_shell_bundle_identifier = "com.blink.browser.content-shell"
+          EOF
 
-          echo "=== GN args ==="
-          gn args "$BUILD_DIR" --list --short | head -30
+          cat "$BUILD_DIR/args.gn"
+          gn gen "$BUILD_DIR"
           echo "=== Configuration complete ==="
 
       - name: Build ${{ inputs.build_target }} with Blink Engine
