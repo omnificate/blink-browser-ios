@@ -125,6 +125,7 @@ jobs:
           cat > "$BUILD_DIR/args.gn" << EOF
           target_os = "ios"
           target_cpu = "arm64"
+          target_environment = "device"
           use_blink = true
           is_debug = ${IS_DEBUG}
           ios_enable_code_signing = false
