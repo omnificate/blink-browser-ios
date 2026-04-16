@@ -21,7 +21,7 @@ on:
 
 jobs:
   build-chromium-blink:
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 360
     env:
       CHROMIUM_BUILDTOOLS_PATH: ${{ github.workspace }}/chromium/src/buildtools
