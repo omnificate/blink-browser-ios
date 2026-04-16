@@ -22,7 +22,7 @@ on:
 jobs:
   build-chromium-blink:
     runs-on: macos-15
-    timeout-minutes: 360
+    timeout-minutes: 355
     env:
       CHROMIUM_BUILDTOOLS_PATH: ${{ github.workspace }}/chromium/src/buildtools
 
@@ -132,12 +132,14 @@ jobs:
           target_environment = "device"
           use_blink = true
           is_debug = ${IS_DEBUG}
+          is_component_build = true
           ios_enable_code_signing = false
           enable_nacl = false
           symbol_level = 0
           blink_symbol_level = 0
           enable_dsyms = false
           treat_warnings_as_errors = false
+          use_thin_lto = false
           ios_content_shell_bundle_identifier = "com.blink.browser.content-shell"
           EOF
 
