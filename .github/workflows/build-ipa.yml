@@ -14,15 +14,25 @@ jobs:
         run: brew install xcodegen
       
       - name: Generate Xcode Project
-        run: xcodegen generate
-      
-      - name: Build Archive
         run: |
-          xcodebuild archive \
+          xcodegen generate
+          echo "Project generated. Contents:"
+          ls -la BlinkBrowser.xcodeproj/
+      
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s /Applications/Xcode_16.1.app || sudo xcode-select -s /Applications/Xcode_16.app || sudo xcode-select -s /Applications/Xcode_15.4.app || true
+      
+      - name: List Available Schemes
+        run: xcodebuild -project BlinkBrowser.xcodeproj -list
+      
+      - name: Build
+        run: |
+          xcodebuild build \
             -project BlinkBrowser.xcodeproj \
             -scheme BlinkBrowser \
-            -destination 'generic/platform=iOS' \
-            -archivePath build/BlinkBrowser.xcarchive \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
@@ -30,13 +40,14 @@ jobs:
       
       - name: Package IPA
         run: |
+          APP_PATH=$(find build/DerivedData -name "*.app" -type d | head -1)
+          echo "App found at: $APP_PATH"
           mkdir -p build/Payload
-          cp -r build/BlinkBrowser.xcarchive/Products/Applications/BlinkBrowser.app build/Payload/
+          cp -r "$APP_PATH" build/Payload/
           cd build && zip -r BlinkBrowser.ipa Payload/
-          
-      - name: Create TIPA (TrollStore)
-        run: |
-          cp build/BlinkBrowser.ipa build/BlinkBrowser.tipa
+          cp BlinkBrowser.ipa BlinkBrowser.tipa
+          echo "IPA size: $(du -h BlinkBrowser.ipa | cut -f1)"
+          echo "TIPA size: $(du -h BlinkBrowser.tipa | cut -f1)"
           
       - name: Upload IPA
         uses: actions/upload-artifact@v4
@@ -44,7 +55,7 @@ jobs:
           name: BlinkBrowser-IPA
           path: build/BlinkBrowser.ipa
           
-      - name: Upload TIPA
+      - name: Upload TIPA (TrollStore)
         uses: actions/upload-artifact@v4
         with:
           name: BlinkBrowser-TIPA
